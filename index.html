@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¡Feliz cumpleaños amor!</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b1030; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { max-width: 100%; max-height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="c" width="900" height="680"></canvas>
+<script>
+// ---------------- Configuración (puedes cambiar estos textos) ----------------
+const TITULO = "♥ ¡Feliz cumpleaños amor! ♥";
+const EDAD = "22 años";
+// -----------------------------------------------------------------------------
+
+const W = 900, H = 680, cx = W / 2;
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const COLORES = ["#ff4d6d", "#ffd166", "#06d6a0", "#4cc9f0", "#c77dff", "#ff9e00", "#f72585"];
+const rnd = (a, b) => Math.random() * (b - a) + a;
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function ell(c, x, y, rx, ry, fill) {
+  c.beginPath();
+  c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  c.fillStyle = fill;
+  c.fill();
+}
+
+// ------------------------------- Pastel (se dibuja una sola vez) -------------
+const cake = document.createElement("canvas");
+cake.width = W; cake.height = H;
+const k = cake.getContext("2d");
+const CREMA = "#fff5f7";
+
+function capa(x1, y1, x2, y2, color) {
+  const mx = (x1 + x2) / 2, rx = (x2 - x1) / 2;
+  ell(k, mx, y2, rx, 14, color);
+  k.fillStyle = color;
+  k.fillRect(x1, y1, x2 - x1, y2 - y1);
+  ell(k, mx, y1, rx, 14, CREMA);
+  for (let x = x1 + 10; x < x2 - 20; x += 34) {
+    const h = rnd(22, 40);
+    ell(k, x + 13, y1 + h / 2, 13, h / 2, CREMA);
+  }
+  const n = Math.floor((x2 - x1) / 12);
+  for (let i = 0; i < n; i++) {
+    ell(k, rnd(x1 + 8, x2 - 8), rnd(y1 + 45, y2 - 6), 3, 3, pick(COLORES));
+  }
+}
+
+ell(k, cx, 578, 250, 30, "#e9e9f2");
+ell(k, cx, 575, 235, 23, "#d6d6e6");
+capa(cx - 200, 470, cx + 200, 575, "#ff8fab");
+capa(cx - 145, 385, cx + 145, 470, "#ffc2d1");
+capa(cx - 90, 310, cx + 90, 385, "#ff8fab");
+
+const velas = [-60, -30, 0, 30, 60].map((dx) => cx + dx);
+velas.forEach((x, i) => {
+  k.fillStyle = COLORES[i % COLORES.length];
+  k.fillRect(x - 5, 268, 10, 44);
+  k.strokeStyle = "#333";
+  k.lineWidth = 2;
+  k.beginPath(); k.moveTo(x, 268); k.lineTo(x, 260); k.stroke();
+});
+
+// ------------------------------- Serpentinas ---------------------------------
+const NSEG = 18;
+function nuevaSerpentina(inicial) {
+  return {
+    x: rnd(0, W), y: inicial ? rnd(-200, H) : rnd(-60, 0),
+    largo: rnd(120, 230), vel: rnd(1.5, 3.5), amp: rnd(10, 28),
+    fase: rnd(0, 6.28), frec: rnd(0.04, 0.10),
+    color: pick(COLORES), grosor: Math.round(rnd(3, 6)),
+  };
+}
+const serpentinas = Array.from({ length: 14 }, () => nuevaSerpentina(true));
+
+// --------------------------------- Confeti -----------------------------------
+function nuevoConfeti(inicial) {
+  return {
+    x: rnd(0, W), y: inicial ? rnd(-50, H) : rnd(-40, 0),
+    vel: rnd(1.5, 4.5), fase: rnd(0, 6.28), vfase: rnd(0.05, 0.15),
+    w: Math.round(rnd(6, 12)), h: Math.round(rnd(4, 8)),
+    color: pick(COLORES), oval: Math.random() < 0.5,
+  };
+}
+const confetis = Array.from({ length: 120 }, () => nuevoConfeti(true));
+
+// -------------------------------- Animación ----------------------------------
+let ultimo = performance.now();
+
+function frame(t) {
+  const f = Math.min((t - ultimo) / 30, 3); // 1 = un "cuadro" de 30 ms
+  ultimo = t;
+
+  ctx.fillStyle = "#1b1030";
+  ctx.fillRect(0, 0, W, H);
+
+  // serpentinas
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  for (let i = 0; i < serpentinas.length; i++) {
+    const s = serpentinas[i];
+    s.y += s.vel * f;
+    s.fase += 0.08 * f;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.grosor;
+    ctx.beginPath();
+    for (let j = 0; j <= NSEG; j++) {
+      const yy = s.y - (s.largo * j) / NSEG;
+      const xx = s.x + s.amp * Math.sin(s.fase + yy * s.frec);
+      if (j === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+    if (s.y - s.largo > H) serpentinas[i] = nuevaSerpentina(false);
+  }
+
+  // confeti
+  for (let i = 0; i < confetis.length; i++) {
+    const c = confetis[i];
+    c.y += c.vel * f;
+    c.fase += c.vfase * f;
+    const x = c.x + 14 * Math.sin(c.fase);
+    if (c.oval) {
+      ell(ctx, x + c.w / 2, c.y + c.h / 2, c.w / 2, c.h / 2, c.color);
+    } else {
+      ctx.fillStyle = c.color;
+      ctx.fillRect(x, c.y, c.w, c.h);
+    }
+    if (c.y > H) confetis[i] = nuevoConfeti(false);
+  }
+
+  // pastel
+  ctx.drawImage(cake, 0, 0);
+
+  // llamas que parpadean
+  for (const x of velas) {
+    const a = rnd(-2, 2), b = rnd(-3, 3);
+    ctx.beginPath();
+    ctx.ellipse(x + a, 249 + b / 2, 7, 13 - b / 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffd23f";
+    ctx.fill();
+    ctx.strokeStyle = "#ff9e00";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ell(ctx, x + a, 253 + b / 2, 3, 6, "#fff3b0");
+  }
+
+  // textos
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 38px Helvetica, Arial, sans-serif";
+  ctx.fillStyle = "#7a1d4a";
+  ctx.fillText(TITULO, cx + 3, 73);
+  ctx.fillStyle = COLORES[Math.floor(t / 360) % COLORES.length];
+  ctx.fillText(TITULO, cx, 70);
+
+  const tam = Math.round(60 + 6 * Math.sin(t * 0.004));
+  ctx.font = "bold " + tam + "px Helvetica, Arial, sans-serif";
+  ctx.fillStyle = "#ffd166";
+  ctx.fillText(EDAD, cx, 150);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
